@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>聊天室</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #d0d0d0;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .user-count {
+            font-size: 14px;
+            color: #666;
+            background: rgba(33, 150, 243, 0.1);
+            padding: 4px 8px;
+            border-radius: 12px;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+        }
+
+        .add-button {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #2196F3;
+            color: white;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .add-button:hover {
+            background: #1976D2;
+        }
+
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .message.own {
+            flex-direction: row-reverse;
+        }
+
+        .message-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .message-content {
+            max-width: 70%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .message.own .message-content {
+            align-items: flex-end;
+        }
+
+        .message-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 2px;
+        }
+
+        .message.own .message-header {
+            flex-direction: row-reverse;
+        }
+
+        .message-username {
+            font-size: 12px;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .message-time {
+            font-size: 11px;
+            color: #999;
+        }
+
+        .message-text {
+            background: white;
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.4;
+            word-wrap: break-word;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            display: inline-block;
+            width: fit-content;
+            max-width: 100%;
+            white-space: pre-wrap;
+        }
+
+        .message.own .message-text {
+            background: #2196F3;
+            color: white;
+        }
+
+        .input-container {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            padding: 15px;
+            border-top: 1px solid #d0d0d0;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .message-input {
+            width: 100%;
+            padding: 12px 15px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            outline: none;
+            resize: none;
+            height: 80px;
+            font-family: inherit;
+            overflow-y: auto;
+            box-sizing: border-box;
+            background: transparent;
+            word-wrap: break-word;
+            line-height: 1.4;
+            color: #333;
+        }
+
+        .message-input::-webkit-resizer {
+            display: none;
+        }
+
+        .message-input::placeholder {
+            color: #666;
+        }
+
+        /* 输入框滚动条样式 */
+        .message-input::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .message-input::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+
+        .message-input::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 3px;
+        }
+
+        .message-input::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .button-container {
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .send-button {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            height: 40px;
+            transition: background-color 0.2s;
+        }
+
+        .send-button:hover {
+            background: #1976D2;
+        }
+
+        .send-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            text-align: center;
+            color: #666;
+            padding: 20px;
+            font-size: 14px;
+        }
+
+        .error {
+            text-align: center;
+            color: #f44336;
+            padding: 20px;
+            font-size: 14px;
+        }
+
+        /* 滚动条样式 */
+        .messages-container::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .messages-container::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .messages-container::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 600px) {
+            .header {
+                padding: 10px 15px;
+            }
+            
+            .header-left {
+                gap: 8px;
+            }
+            
+            .title {
+                font-size: 15px;
+            }
+            
+            .user-count {
+                font-size: 13px;
+                padding: 3px 6px;
+            }
+            
+            .add-button {
+                width: 28px;
+                height: 28px;
+                font-size: 16px;
+            }
+            
+            .messages-container {
+                padding: 10px;
+            }
+            
+            .input-container {
+                padding: 12px;
+                gap: 8px;
+            }
+            
+            .message-input {
+                height: 70px;
+                padding: 10px 12px;
+            }
+            
+            .send-button {
+                padding: 8px 20px;
+                height: 36px;
+            }
+            
+            .message-content {
+                max-width: 85%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-left">
+            <div class="title">聊天室</div>
+            <div class="user-count" id="userCount">连接中...</div>
+        </div>
+        <div class="header-right">
+            <button class="add-button" onclick="window.open('http://quruanpu.cccpan.com/', '_blank')">+</button>
+        </div>
+    </div>
+
+    <div class="messages-container" id="messagesContainer">
+        <!-- 消息将在这里动态加载 -->
+    </div>
+
+    <div class="input-container">
+        <textarea class="message-input" id="messageInput" placeholder="输入消息..." rows="3"></textarea>
+        <div class="button-container">
+            <button class="send-button" id="sendButton" onclick="sendMessage()">发送</button>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <script>
+        // Firebase配置
+        const firebaseConfig = {
+            apiKey: "AIzaSyDf8kj-hckk2GYDVCRtJYGPzAXtvEyuOYA",
+            authDomain: "liaotian-6afd4.firebaseapp.com",
+            databaseURL: "https://liaotian-6afd4-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "liaotian-6afd4",
+            storageBucket: "liaotian-6afd4.firebasestorage.app",
+            messagingSenderId: "724719798609",
+            appId: "1:724719798609:web:be52644226210a50cfab70",
+            measurementId: "G-N5WK9GVEHE"
+        };
+
+        // 初始化Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // 生成用户ID
+        function generateUserId() {
+            const randomNum = Math.floor(Math.random() * 10000);
+            return `user_${Date.now()}_${randomNum}`;
+        }
+
+        // 生成随机用户信息
+        function generateRandomUserInfo() {
+            const avatars = ['🐶', '🐱', '🐭', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🐔', '🐧', '🐦', '🐤', '🦆', '🐝', '🐛', '🦋', '🐌', '🐞', '🐜', '🐢', '🐍', '🦎', '🐙', '🦐', '🦀', '🐡', '🐠', '🐟', '🐬', '🐳', '🐋', '🦈', '🐊', '🐅', '🐆', '🦓', '🦍', '🐘', '🦏', '🐪', '🐫', '🦒', '🐃', '🐂', '🐄', '🐎', '🐖', '🐏', '🐑', '🐐', '🦌', '🐕', '🐈', '🐓', '🦃', '🐇', '🐁', '🐀', '🐿️', '🦔'];
+            const adjectives = ['快乐', '聪明', '勇敢', '温柔', '活泼', '神秘', '可爱', '友善', '冷静', '热情', '幽默', '优雅', '坚强', '善良', '机智', '淘气', '温暖', '开朗', '安静', '自信'];
+            const nouns = ['熊猫', '企鹅', '海豚', '小鸟', '蝴蝶', '小猫', '小狗', '兔子', '松鼠', '考拉', '狐狸', '小羊', '小鹿', '海星', '蜜蜂', '小鱼', '小象', '长颈鹿', '小马', '小熊'];
+            
+            const avatar = avatars[Math.floor(Math.random() * avatars.length)];
+            const adjective = adjectives[Math.floor(Math.random() * adjectives.length)];
+            const noun = nouns[Math.floor(Math.random() * nouns.length)];
+            
+            return {
+                avatar: avatar,
+                username: adjective + noun,
+                color: `hsl(${Math.floor(Math.random() * 360)}, 70%, 50%)`
+            };
+        }
+
+        // 从localStorage获取或创建用户（简化版）
+        function getOrCreateUser() {
+            const STORAGE_KEY = 'chatroom_user_info';
+            
+            try {
+                // 尝试从localStorage获取已保存的用户信息
+                const savedUser = localStorage.getItem(STORAGE_KEY);
+                if (savedUser) {
+                    const user = JSON.parse(savedUser);
+                    // 验证用户信息完整性
+                    if (user.id && user.username && user.avatar && user.color) {
+                        console.log('使用已保存的用户信息:', user.username);
+                        return user;
+                    }
+                }
+            } catch (error) {
+                console.log('读取已保存用户信息失败，将创建新用户');
+            }
+            
+            // 如果没有保存的用户信息或信息不完整，则生成新用户
+            const newUserInfo = generateRandomUserInfo();
+            const newUser = {
+                id: generateUserId(),
+                username: newUserInfo.username,
+                avatar: newUserInfo.avatar,
+                color: newUserInfo.color
+            };
+            
+            // 保存新用户信息到localStorage
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(newUser));
+                console.log('新用户信息已保存:', newUser.username);
+            } catch (error) {
+                console.log('保存用户信息失败:', error);
+            }
+            
+            return newUser;
+        }
+
+        // 全局变量
+        let currentUser = getOrCreateUser(); // 修改：直接同步调用
+        let messagesRef = database.ref('messages');
+        let onlineUsersRef = database.ref('onlineUsers');
+        let messageInput, messagesContainer, sendButton; // 修改：延迟获取DOM元素
+
+        // 消息发送频率限制相关
+        let userMessageTimes = []; // 用户发送消息的时间戳数组
+        const MESSAGE_LIMIT = 10; // 一分钟内最大消息数
+        const TIME_WINDOW = 60000; // 时间窗口：60秒
+
+        // 懒加载相关
+        let lastMessageKey = null; // 最后加载的消息键
+        let isLoadingMore = false; // 是否正在加载更多
+        let hasMoreMessages = true; // 是否还有更多消息
+        const MESSAGES_PER_LOAD = 20; // 每次加载的消息数量
+        // 检查发送频率限制
+        function checkSendLimit() {
+            const now = Date.now();
+            
+            // 清除超过时间窗口的记录
+            userMessageTimes = userMessageTimes.filter(time => now - time < TIME_WINDOW);
+            
+            // 检查是否超过限制
+            if (userMessageTimes.length >= MESSAGE_LIMIT) {
+                const oldestTime = Math.min(...userMessageTimes);
+                const waitTime = Math.ceil((TIME_WINDOW - (now - oldestTime)) / 1000);
+                
+                showTemporaryMessage(`发送太频繁，请等待 ${waitTime} 秒后再发送`, 'warning');
+                return false;
+            }
+            
+            return true;
+        }
+
+        // 显示临时提示消息
+        function showTemporaryMessage(message, type = 'info') {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `temporary-message ${type}`;
+            messageDiv.style.cssText = `
+                position: fixed;
+                top: 80px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: ${type === 'warning' ? '#ff9800' : '#2196F3'};
+                color: white;
+                padding: 10px 20px;
+                border-radius: 6px;
+                z-index: 1000;
+                font-size: 14px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            `;
+            messageDiv.textContent = message;
+            
+            document.body.appendChild(messageDiv);
+            
+            // 3秒后自动移除
+            setTimeout(() => {
+                if (messageDiv.parentNode) {
+                    messageDiv.parentNode.removeChild(messageDiv);
+                }
+            }, 3000);
+        }
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            
+            if (diffMins < 1) return '刚刚';
+            if (diffMins <= 10) return `${diffMins}分钟前`;
+            
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const messageDate = new Date(date);
+            messageDate.setHours(0, 0, 0, 0);
+            
+            if (messageDate.getTime() === today.getTime()) {
+                return date.toLocaleTimeString('zh-CN', { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    hour12: false
+                });
+            }
+            
+            return date.toLocaleString('zh-CN', { 
+                month: 'numeric', 
+                day: 'numeric', 
+                hour: '2-digit', 
+                minute: '2-digit',
+                hour12: false
+            });
+        }
+
+        // 创建消息元素
+        function createMessageElement(message) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+            messageDiv.dataset.timestamp = message.timestamp;
+            
+            // 如果消息有key，添加到dataset中
+            if (message.key) {
+                messageDiv.setAttribute('data-message-key', message.key);
+            }
+            
+            if (message.userId === currentUser.id) {
+                messageDiv.classList.add('own');
+            }
+            
+            const timeText = formatTime(message.timestamp);
+            
+            messageDiv.innerHTML = `
+                <div class="message-avatar" style="background-color: ${message.userColor}">${message.userAvatar}</div>
+                <div class="message-content">
+                    <div class="message-header">
+                        <div class="message-username">${message.username}</div>
+                        <div class="message-time">${timeText}</div>
+                    </div>
+                    <div class="message-text">${escapeHtml(message.text)}</div>
+                </div>
+            `;
+            
+            return messageDiv;
+        }
+
+        // 滚动到底部
+        function scrollToBottom() {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        // 转义HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 更新所有消息的时间显示
+        function updateMessageTimes() {
+            const messages = messagesContainer.querySelectorAll('.message');
+            messages.forEach(messageElement => {
+                const timeElement = messageElement.querySelector('.message-time');
+                const timestamp = messageElement.dataset.timestamp;
+                if (timestamp && timeElement) {
+                    const newTimeText = formatTime(parseInt(timestamp));
+                    timeElement.textContent = newTimeText;
+                }
+            });
+        }
+
+        // 发送消息
+        function sendMessage() {
+            if (!currentUser) {
+                console.log('用户信息尚未加载完成');
+                return;
+            }
+            
+            const text = messageInput.value.trim();
+            if (!text || text.length === 0) return;
+
+            // 检查发送频率限制
+            if (!checkSendLimit()) {
+                return;
+            }
+
+            const message = {
+                text: text,
+                username: currentUser.username,
+                userAvatar: currentUser.avatar,
+                userColor: currentUser.color,
+                userId: currentUser.id,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            };
+            
+            messagesRef.push(message)
+                .then(() => {
+                    messageInput.value = '';
+                    messageInput.focus();
+                    // 记录发送时间
+                    userMessageTimes.push(Date.now());
+                    // 更新按钮状态
+                    updateSendButtonStatus();
+                })
+                .catch((error) => {
+                    console.error('发送消息失败:', error);
+                    if (error.code === 'PERMISSION_DENIED') {
+                        showError('数据库权限未设置，请检查Firebase安全规则');
+                    }
+                });
+        }
+
+        // 显示错误信息
+        function showError(message) {
+            messagesContainer.innerHTML = `
+                <div class="error">
+                    <div>⚠️ ${message}</div>
+                    <div style="margin-top: 10px; font-size: 12px;">请在Firebase控制台设置安全规则</div>
+                </div>
+            `;
+        }
+
+        // 注册在线用户
+        function registerOnlineUser() {
+            if (!currentUser) return;
+            
+            const userRef = onlineUsersRef.child(currentUser.id);
+            userRef.set({
+                username: currentUser.username,
+                avatar: currentUser.avatar,
+                color: currentUser.color,
+                lastSeen: firebase.database.ServerValue.TIMESTAMP
+            }).catch((error) => {
+                console.error('注册在线用户失败:', error);
+                if (error.code === 'PERMISSION_DENIED') {
+                    showError('数据库权限未设置，请检查Firebase安全规则');
+                }
+            });
+
+            userRef.onDisconnect().remove();
+        }
+
+        // 加载更多历史消息
+        function loadMoreMessages() {
+            if (isLoadingMore || !hasMoreMessages) return;
+            
+            isLoadingMore = true;
+            showLoadingIndicator();
+            
+            let query;
+            if (lastMessageKey) {
+                // 加载指定消息之前的消息
+                query = messagesRef.orderByKey().endBefore(lastMessageKey).limitToLast(MESSAGES_PER_LOAD);
+            } else {
+                // 首次加载最新消息
+                query = messagesRef.orderByKey().limitToLast(MESSAGES_PER_LOAD);
+            }
+            
+            query.once('value', function(snapshot) {
+                const messages = [];
+                snapshot.forEach(function(childSnapshot) {
+                    const message = childSnapshot.val();
+                    if (message) {
+                        message.key = childSnapshot.key;
+                        messages.unshift(message); // 插入到数组开头，保持时间顺序
+                    }
+                });
+                
+                if (messages.length === 0) {
+                    hasMoreMessages = false;
+                    hideLoadingIndicator();
+                    isLoadingMore = false;
+                    return;
+                }
+                
+                // 记录最早的消息键，用于下次分页
+                lastMessageKey = messages[0].key;
+                
+                // 保存当前滚动位置
+                const oldScrollHeight = messagesContainer.scrollHeight;
+                
+                // 将新消息插入到容器顶部
+                messages.forEach(message => {
+                    const messageElement = createMessageElement(message);
+                    messagesContainer.insertBefore(messageElement, messagesContainer.firstChild);
+                });
+                
+                // 调整滚动位置，保持用户当前查看的内容不变
+                const newScrollHeight = messagesContainer.scrollHeight;
+                messagesContainer.scrollTop = newScrollHeight - oldScrollHeight;
+                
+                hideLoadingIndicator();
+                isLoadingMore = false;
+                
+                // 如果加载的消息数量少于请求数量，说明没有更多消息了
+                if (messages.length < MESSAGES_PER_LOAD) {
+                    hasMoreMessages = false;
+                }
+            }, function(error) {
+                console.error('加载历史消息失败:', error);
+                hideLoadingIndicator();
+                isLoadingMore = false;
+            });
+        }
+
+        // 显示加载指示器
+        function showLoadingIndicator() {
+            let indicator = document.getElementById('loadingIndicator');
+            if (!indicator) {
+                indicator = document.createElement('div');
+                indicator.id = 'loadingIndicator';
+                indicator.className = 'loading-indicator';
+                indicator.style.cssText = `
+                    text-align: center;
+                    color: #666;
+                    padding: 10px;
+                    font-size: 12px;
+                    background: rgba(255,255,255,0.8);
+                    margin-bottom: 10px;
+                `;
+                indicator.textContent = '正在加载历史消息...';
+                messagesContainer.insertBefore(indicator, messagesContainer.firstChild);
+            }
+        }
+
+        // 隐藏加载指示器
+        function hideLoadingIndicator() {
+            const indicator = document.getElementById('loadingIndicator');
+            if (indicator && indicator.parentNode) {
+                indicator.parentNode.removeChild(indicator);
+            }
+        }
+        function listenForMessages() {
+            messagesRef.limitToLast(50).on('child_added', function(snapshot) {
+                const message = snapshot.val();
+                if (message && currentUser) { // 确保currentUser已加载
+                    if (messagesContainer.querySelector('.loading')) {
+                        messagesContainer.innerHTML = '';
+                    }
+                    
+                    const messageElement = createMessageElement(message);
+                    messagesContainer.appendChild(messageElement);
+                    scrollToBottom();
+                }
+            }, function(error) {
+                console.error('监听消息失败:', error);
+                if (error.code === 'PERMISSION_DENIED') {
+                    showError('数据库权限未设置，请检查Firebase安全规则');
+                }
+            });
+        }
+
+        // 监听在线用户数量
+        function listenForOnlineUsers() {
+            onlineUsersRef.on('value', function(snapshot) {
+                const onlineUsers = snapshot.val() || {};
+                const count = Object.keys(onlineUsers).length;
+                document.getElementById('userCount').textContent = `${count}人在线`;
+            }, function(error) {
+                console.error('监听在线用户失败:', error);
+                document.getElementById('userCount').textContent = '连接错误';
+            });
+        }
+
+        // 更新发送按钮状态和剩余次数显示
+        function updateSendButtonStatus() {
+            const now = Date.now();
+            userMessageTimes = userMessageTimes.filter(time => now - time < TIME_WINDOW);
+            
+            const remainingMessages = MESSAGE_LIMIT - userMessageTimes.length;
+            
+            if (remainingMessages <= 0) {
+                sendButton.disabled = true;
+                sendButton.textContent = '发送受限';
+                const oldestTime = Math.min(...userMessageTimes);
+                const waitTime = Math.ceil((TIME_WINDOW - (now - oldestTime)) / 1000);
+                sendButton.title = `发送太频繁，请等待 ${waitTime} 秒`;
+            } else {
+                sendButton.disabled = false;
+                sendButton.textContent = '发送';
+                sendButton.title = `剩余 ${remainingMessages}/${MESSAGE_LIMIT} 条消息`;
+            }
+        }
+
+        // 设置事件监听器
+        function setupEventListeners() {
+            // 键盘事件
+            messageInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+
+            // 监听输入事件，实时更新按钮状态
+            messageInput.addEventListener('input', updateSendButtonStatus);
+        }
+
+        // 初始化应用
+        function initializeApp() {
+            // 确保DOM元素都已加载
+            messagesContainer = document.getElementById('messagesContainer');
+            messageInput = document.getElementById('messageInput');
+            sendButton = document.getElementById('sendButton');
+            
+            if (!messagesContainer || !messageInput || !sendButton) {
+                console.error('无法找到必要的DOM元素');
+                return;
+            }
+            
+            messagesContainer.innerHTML = '<div class="loading">正在连接聊天室...</div>';
+            
+            console.log('当前用户已加载:', currentUser.username);
+            
+            // 设置事件监听器
+            setupEventListeners();
+            
+            // 设置滚动监听器
+            messagesContainer.addEventListener('scroll', function() {
+                // 当滚动到顶部附近时，加载更多历史消息
+                if (messagesContainer.scrollTop < 100 && hasMoreMessages && !isLoadingMore) {
+                    loadMoreMessages();
+                }
+            });
+            
+            // 检查数据库连接状态
+            const connectedRef = database.ref('.info/connected');
+            connectedRef.on('value', function(snapshot) {
+                if (snapshot.val() === true) {
+                    console.log('已连接到Firebase');
+                    
+                    registerOnlineUser();
+                    listenForMessages();
+                    listenForOnlineUsers();
+                } else {
+                    console.log('与Firebase断开连接');
+                    document.getElementById('userCount').textContent = '连接中...';
+                }
+            });
+        }
+
+        // 页面加载完成后初始化
+        window.addEventListener('load', function() {
+            initializeApp();
+            updateSendButtonStatus(); // 初始化按钮状态
+        });
+
+        // 防止刷新丢失在线状态
+        window.addEventListener('beforeunload', function() {
+            if (currentUser) {
+                onlineUsersRef.child(currentUser.id).remove();
+            }
+        });
+
+        // 每分钟更新一次消息时间显示
+        setInterval(updateMessageTimes, 60000);
+
+        // 每秒更新发送按钮状态
+        setInterval(updateSendButtonStatus, 1000);
+
+        // 定期清理旧消息
+        setInterval(function() {
+            messagesRef.limitToLast(100).once('value', function(snapshot) {
+                const messages = [];
+                snapshot.forEach(function(childSnapshot) {
+                    messages.push({
+                        key: childSnapshot.key,
+                        timestamp: childSnapshot.val().timestamp
+                    });
+                });
+                
+                if (messages.length > 100) {
+                    messages.sort((a, b) => a.timestamp - b.timestamp);
+                    const toDelete = messages.slice(0, messages.length - 100);
+                    toDelete.forEach(function(msg) {
+                        messagesRef.child(msg.key).remove();
+                    });
+                }
+            });
+        }, 60000);
+    </script>
+</body>
+</html>

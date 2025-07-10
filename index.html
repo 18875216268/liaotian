@@ -247,6 +247,19 @@
             font-size: 14px;
         }
 
+        .empty-chat {
+            text-align: center;
+            color: #666;
+            padding: 40px 20px;
+            font-size: 14px;
+        }
+
+        .empty-chat .emoji {
+            font-size: 48px;
+            margin-bottom: 16px;
+            display: block;
+        }
+
         /* 滚动条样式 */
         .messages-container::-webkit-scrollbar {
             width: 4px;
@@ -557,6 +570,32 @@
             return div.innerHTML;
         }
 
+        // 显示空聊天室状态
+        function showEmptyChat() {
+            messagesContainer.innerHTML = `
+                <div class="empty-chat">
+                    <span class="emoji">💬</span>
+                    <div>暂无消息</div>
+                    <div style="font-size: 12px; color: #999; margin-top: 8px;">发送第一条消息开始聊天吧！</div>
+                </div>
+            `;
+        }
+
+        // 清除所有状态显示
+        function clearStatusDisplays() {
+            // 清除所有loading、error、empty状态
+            const statusElements = messagesContainer.querySelectorAll('.loading, .error, .empty-chat');
+            statusElements.forEach(el => el.remove());
+            
+            // 如果容器中只有状态元素，清空容器
+            if (messagesContainer.children.length === 1 && 
+                (messagesContainer.querySelector('.loading') || 
+                 messagesContainer.querySelector('.error') || 
+                 messagesContainer.querySelector('.empty-chat'))) {
+                messagesContainer.innerHTML = '';
+            }
+        }
+
         // 更新所有消息的时间显示
         function updateMessageTimes() {
             const messages = messagesContainer.querySelectorAll('.message');
@@ -671,13 +710,26 @@
                     }
                 });
                 
+                // **关键修复：清除loading状态**
+                hideLoadingIndicator();
+                
                 // 如果没有新消息，说明已经加载完所有历史消息
                 if (messages.length === 0) {
                     hasMoreMessages = false;
-                    hideLoadingIndicator();
                     isLoadingMore = false;
                     console.log('没有更多历史消息');
+                    
+                    // **关键修复：如果是首次加载且没有消息，显示空聊天状态**
+                    if (isInitialLoad) {
+                        showEmptyChat();
+                        isInitialLoad = false;
+                    }
                     return;
+                }
+                
+                // **关键修复：如果是首次加载，先清除loading状态**
+                if (isInitialLoad) {
+                    clearStatusDisplays();
                 }
                 
                 // 更新最早消息的key
@@ -706,7 +758,6 @@
                     messagesContainer.scrollTop = oldScrollTop + (newScrollHeight - oldScrollHeight);
                 }
                 
-                hideLoadingIndicator();
                 isLoadingMore = false;
                 
                 // 修复判断逻辑：如果这次获取到的消息数量少于请求数量，说明没有更多消息了
@@ -718,6 +769,11 @@
                 console.error('加载历史消息失败:', error);
                 hideLoadingIndicator();
                 isLoadingMore = false;
+                
+                // **添加错误处理**
+                if (isInitialLoad) {
+                    showError('加载消息失败，请刷新页面重试');
+                }
             });
         }
 
@@ -761,9 +817,8 @@
                     message.key = messageKey;
                     loadedMessageKeys.add(messageKey);
                     
-                    if (messagesContainer.querySelector('.loading')) {
-                        messagesContainer.innerHTML = '';
-                    }
+                    // **修复：清除空聊天状态**
+                    clearStatusDisplays();
                     
                     const messageElement = createMessageElement(message);
                     messagesContainer.appendChild(messageElement);
@@ -873,8 +928,11 @@
 
         // 页面加载完成后初始化
         window.addEventListener('load', function() {
-            initializeApp();
-            updateSendButtonStatus(); // 初始化按钮状态
+            // **添加延迟，确保DOM完全准备就绪**
+            setTimeout(() => {
+                initializeApp();
+                updateSendButtonStatus(); // 初始化按钮状态
+            }, 100);
         });
 
         // 防止刷新丢失在线状态

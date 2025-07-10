@@ -417,21 +417,24 @@
         }
 
         // 全局变量
-        let currentUser = getOrCreateUser(); // 修改：直接同步调用
+        let currentUser = getOrCreateUser();
         let messagesRef = database.ref('messages');
         let onlineUsersRef = database.ref('onlineUsers');
-        let messageInput, messagesContainer, sendButton; // 修改：延迟获取DOM元素
+        let messageInput, messagesContainer, sendButton;
 
         // 消息发送频率限制相关
-        let userMessageTimes = []; // 用户发送消息的时间戳数组
-        const MESSAGE_LIMIT = 10; // 一分钟内最大消息数
-        const TIME_WINDOW = 60000; // 时间窗口：60秒
+        let userMessageTimes = [];
+        const MESSAGE_LIMIT = 10;
+        const TIME_WINDOW = 60000;
 
-        // 懒加载相关
-        let lastMessageKey = null; // 最后加载的消息键
-        let isLoadingMore = false; // 是否正在加载更多
-        let hasMoreMessages = true; // 是否还有更多消息
-        const MESSAGES_PER_LOAD = 20; // 每次加载的消息数量
+        // 懒加载相关 - 修改为Set来存储已加载的消息key，避免重复
+        let loadedMessageKeys = new Set();
+        let lastMessageKey = null;
+        let isLoadingMore = false;
+        let hasMoreMessages = true;
+        let isInitialLoad = true;
+        const MESSAGES_PER_LOAD = 20;
+
         // 检查发送频率限制
         function checkSendLimit() {
             const now = Date.now();
@@ -479,6 +482,7 @@
                 }
             }, 3000);
         }
+
         function formatTime(timestamp) {
             const date = new Date(timestamp);
             const now = new Date();
@@ -637,7 +641,7 @@
             userRef.onDisconnect().remove();
         }
 
-        // 加载更多历史消息
+        // 修复后的加载更多历史消息函数
         function loadMoreMessages() {
             if (isLoadingMore || !hasMoreMessages) return;
             
@@ -656,25 +660,34 @@
             query.once('value', function(snapshot) {
                 const messages = [];
                 snapshot.forEach(function(childSnapshot) {
+                    const messageKey = childSnapshot.key;
                     const message = childSnapshot.val();
-                    if (message) {
-                        message.key = childSnapshot.key;
+                    
+                    // 检查是否已经加载过这条消息，避免重复
+                    if (message && !loadedMessageKeys.has(messageKey)) {
+                        message.key = messageKey;
                         messages.unshift(message); // 插入到数组开头，保持时间顺序
+                        loadedMessageKeys.add(messageKey); // 记录已加载的消息
                     }
                 });
                 
+                // 如果没有新消息，说明已经加载完所有历史消息
                 if (messages.length === 0) {
                     hasMoreMessages = false;
                     hideLoadingIndicator();
                     isLoadingMore = false;
+                    console.log('没有更多历史消息');
                     return;
                 }
                 
-                // 记录最早的消息键，用于下次分页
-                lastMessageKey = messages[0].key;
+                // 更新最早消息的key
+                if (messages.length > 0) {
+                    lastMessageKey = messages[0].key;
+                }
                 
                 // 保存当前滚动位置
                 const oldScrollHeight = messagesContainer.scrollHeight;
+                const oldScrollTop = messagesContainer.scrollTop;
                 
                 // 将新消息插入到容器顶部
                 messages.forEach(message => {
@@ -683,15 +696,23 @@
                 });
                 
                 // 调整滚动位置，保持用户当前查看的内容不变
-                const newScrollHeight = messagesContainer.scrollHeight;
-                messagesContainer.scrollTop = newScrollHeight - oldScrollHeight;
+                if (isInitialLoad) {
+                    // 首次加载，滚动到底部
+                    scrollToBottom();
+                    isInitialLoad = false;
+                } else {
+                    // 后续加载，保持滚动位置
+                    const newScrollHeight = messagesContainer.scrollHeight;
+                    messagesContainer.scrollTop = oldScrollTop + (newScrollHeight - oldScrollHeight);
+                }
                 
                 hideLoadingIndicator();
                 isLoadingMore = false;
                 
-                // 如果加载的消息数量少于请求数量，说明没有更多消息了
+                // 修复判断逻辑：如果这次获取到的消息数量少于请求数量，说明没有更多消息了
                 if (messages.length < MESSAGES_PER_LOAD) {
                     hasMoreMessages = false;
+                    console.log('已加载所有历史消息');
                 }
             }, function(error) {
                 console.error('加载历史消息失败:', error);
@@ -727,10 +748,19 @@
                 indicator.parentNode.removeChild(indicator);
             }
         }
-        function listenForMessages() {
-            messagesRef.limitToLast(50).on('child_added', function(snapshot) {
+
+        // 修复后的监听新消息函数 - 只监听新消息，不处理历史消息
+        function listenForNewMessages() {
+            // 只监听新添加的消息，避免重复加载
+            messagesRef.on('child_added', function(snapshot) {
+                const messageKey = snapshot.key;
                 const message = snapshot.val();
-                if (message && currentUser) { // 确保currentUser已加载
+                
+                // 如果这条消息还没有被加载过，且不是初始加载期间，则添加到界面
+                if (message && currentUser && !loadedMessageKeys.has(messageKey) && !isInitialLoad) {
+                    message.key = messageKey;
+                    loadedMessageKeys.add(messageKey);
+                    
                     if (messagesContainer.querySelector('.loading')) {
                         messagesContainer.innerHTML = '';
                     }
@@ -827,8 +857,13 @@
                     console.log('已连接到Firebase');
                     
                     registerOnlineUser();
-                    listenForMessages();
                     listenForOnlineUsers();
+                    
+                    // 首次加载历史消息
+                    loadMoreMessages();
+                    
+                    // 开始监听新消息
+                    listenForNewMessages();
                 } else {
                     console.log('与Firebase断开连接');
                     document.getElementById('userCount').textContent = '连接中...';
